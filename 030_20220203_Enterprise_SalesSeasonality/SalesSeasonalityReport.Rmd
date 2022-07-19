@@ -1,0 +1,277 @@
+---
+title: "Sales Seasonality Report"
+subtitle: "For Sales of CY 2021"
+author: "Insights and Analytics | `r paste0('Last Updated: ', format(Sys.time(), '%d %B, %Y'))`"
+output: 
+  pagedreport::paged_windmill:
+    front_img: "input/ottawa.jpg"
+    logo: "input/TangerOutlets_LOGO_horizontal.svg"
+    img_to_dark: TRUE
+    logo_to_white: TRUE
+    toc: TRUE
+knit: pagedown::chrome_print
+toc-title: "Table of Contents"
+main-color: "#bf0000"
+secondary-color: "#acacad"
+google-font: TRUE
+main-font: "Roboto"
+editor_options: 
+  chunk_output_type: console
+---
+
+```{css, echo = FALSE}
+
+p, ul, ol {
+  margin-right: 0%;
+}
+
+h1.title {
+    font-size: 30pt;
+    margin-right: 10%;
+    font-weight: 700;
+}
+
+h1.subtitle {
+    font-size: 20pt;
+    margin-right: 15%;
+    font-weight: 300;
+}
+
+h2.author {
+    font-size: 12pt;
+    margin-right: 10%;
+    font-weight: 700;
+}
+
+h2.date {
+    font-size: 12pt;
+    margin-right: 10%;
+    font-weight: 300;
+}
+
+h1.toc-title {
+    font-size: 30pt;
+    font-weight: 200;
+}
+
+h1 { /* Header 1 */
+  font-size: 26px;
+}
+h2 { /* Header 2 */
+    font-size: 20px;
+}
+h3 { /* Header 3 */
+  font-size: 16px;
+}
+body {
+  font-size: 10pt;
+}
+```
+
+```{r setup, include=FALSE}
+# knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+knitr::opts_chunk$set(fig.align = 'center', fig.height = 9)
+library(tidyverse)
+library(kableExtra)
+library(gt)
+options(scipen = 999)
+theme_set(theme_bw())
+cb_palette <- c("#003399", "#ff2b4f", "#3686d3", "#fcab27", "#88298a", "#000000", "#969696", "#008f05", "#FF5733", "#E5F828")
+
+load(file = here::here("data", "SalesPerc.rds"))
+
+# ---- Date lookups -------
+DatYear <- 2021
+
+
+#---- data cleaning --------
+
+UnqCenters <-
+  AggeCenters %>% 
+  distinct(BldgGroupName) %>% 
+  pull(BldgGroupName)
+
+
+i <- UnqCenters[1]
+```
+
+```{r, include=F}
+library(cowplot)
+
+bildChart <- function(i){
+
+p <- AggeCenters %>% 
+  ungroup() %>%
+  filter(BldgGroupName == i,
+         Year != 2020) %>%
+  mutate(Month = lubridate::month(Date, label =T, abbr=T),
+         Year = factor(Year)) %>% 
+  ggplot(aes(Month, PercYear, fill=Year))+
+    geom_bar(stat = "identity", position = "dodge", alpha=0.6)+
+    scale_fill_manual(values = cb_palette)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,0.21), labels = scales::percent,
+                     breaks = seq(0, 0.22, by = 0.03))+
+  labs(y = NULL, x=NULL, fill=NULL,
+       title = glue::glue("Percent of Gross Sales by Month"))+
+  theme(legend.position = "bottom")
+  
+t <- AggeCenters %>% 
+  ungroup() %>%
+  filter(BldgGroupName == i,
+         Year != 2020) %>%
+  filter(Year == DatYear) %>% 
+  mutate(Month = lubridate::month(Date, label =T, abbr=T)) %>% 
+  select(BldgGroupName, Month, TotalSales, PercYear) %>% 
+  rename(`Percent of Sales` = PercYear,
+         `Total Gross Sales` = TotalSales) %>% 
+  gt(rowname_col = "BldgGroupName") %>% 
+    fmt_percent(columns = 4, decimals = 2) %>% 
+    fmt_currency(columns = 3, decimals = 0, suffix = T) %>% 
+  summary_rows(columns = 3, fns = list(total = "sum"),  formatter = fmt_currency,
+    decimals = 2, suffix = T) %>% 
+  tab_header(glue::glue("Percent of Sales by Month for Year: {DatYear} ")) %>% 
+  tab_options(
+    table.font.size = px(11L)
+  )
+# print(t)  
+t %>%  gtsave("t11.png", path = here::here("img"))
+
+t1 <- ggdraw() + draw_image(here::here("img","t11.png"), scale = 1)
+p1 <- ggdraw(p)
+
+  
+print(plot_grid(t1, p1, 
+                ncol = 1, rel_widths = c(1, 1), rel_heights = c(2,1)))
+  
+}
+
+# bildChart(i)
+
+
+```
+
+
+
+# Portfolio {-}
+
+## Percent by Month and Trend {-}
+Below are the sales for the and percent of sales for the portfolio
+
+```{r, include=F}
+
+  
+t <- Portf %>% 
+  ungroup() %>%
+  filter(Year == DatYear,
+         Year != 2020) %>% 
+  mutate(Month = lubridate::month(Date, label =T, abbr=T)) %>% 
+  select(All, Month, TotalSales, PercYear) %>% 
+  rename(`Percent of Sales` = PercYear,
+         `Total Gross Sales` = TotalSales) %>% 
+  gt(rowname_col = "All") %>% 
+    fmt_percent(columns = 4, decimals = 2) %>% 
+    fmt_currency(columns = 3, decimals = 0, suffix = T) %>% 
+  summary_rows(columns = 3, fns = list(total = "sum"),  formatter = fmt_currency,
+    decimals = 2, suffix = T) %>% 
+  tab_header(glue::glue("Percent of Sales by Month for Year: {DatYear} ")) %>% 
+  tab_options(
+    table.font.size = px(11L)
+  )
+
+t %>%  gtsave("t11.png", path = here::here("img"))
+
+
+p <- Portf %>% 
+  ungroup() %>%
+  filter(Year != 2020) %>%
+  mutate(Month = lubridate::month(Date, label =T, abbr=T),
+         Year = factor(Year)) %>% 
+  ggplot(aes(Month, PercYear, fill=Year))+
+    geom_bar(stat = "identity", position = "dodge", alpha=0.6)+
+    scale_fill_manual(values = cb_palette)+
+  scale_y_continuous(expand = c(0,0), limits = c(0,0.21), labels = scales::percent,
+                     breaks = seq(0, 0.22, by = 0.03))+
+  labs(y = NULL, x=NULL, fill=NULL,
+       title = "Percent of Gross Sales by Month")+
+  theme(legend.position = "bottom")
+
+```
+
+```{r, fig.height=8}
+
+
+t1 <- ggdraw() + draw_image(here::here("img","t11.png"), scale = 1)
+p1 <- ggdraw(p)
+
+  
+print(plot_grid(t1, p1, 
+                ncol = 1, rel_widths = c(1, 1), rel_heights = c(2,1)))
+```
+
+
+
+
+
+
+# By Center View {-}
+
+```{r center_loops, results='asis'}
+
+
+
+for(i in UnqCenters) {
+  cat("\n")
+  cat(paste0("## ", i, "{-} \n"))
+
+    bildChart(i)
+
+  cat("\n\n")
+}
+
+
+```
+
+
+# Appendix {-}
+
+## Data Source {-}
+This report is built from the Sales data present with the Warehouse (data extracted from MRI). 
+
+```{sql, eval=F, echo=T}
+select dimd.fulldate, dimc.CENTERNAME, dimc.BldgGroupName, dimc.[BLDGID], diml.TenantName, diml.ChainName, diml.leasid 
+,dime.PORTID,fas.ISTEMP, fas.IsCurrentlyOpen,fas.ISNONREPORTING, fas.IsOpenForFullYear, diml.zPopUpProgram, lastlsf, [CurrentYearSales1M]
+from warehouse.dbo.FactAdjustedSales fas 
+	left join warehouse.dbo.DimLease diml on fas.LeaseKey = diml.LeaseKey
+	left join warehouse.dbo.DimCenter dimc on fas.CenterKey = dimc.CenterKey
+	left join warehouse.dbo.DimTenant dimt on fas.TenantKey = dimt.TenantKey
+	left join warehouse.dbo.DimEntity dime on fas.EntityKey = dime.EntityKey
+	left join warehouse.dbo.DimDate dimd on fas.dateKey = dimd.DateKey
+where fas.DateKey > 20161231
+--and lastlsf > 0
+order by CENTERNAME, fas.datekey desc, tenantname
+```
+
+
+## Methodology {-}
+
+The report uses full year sales data. The percent of sales by month are calculated from the ratio of total gross sale for that month divided by the total sales for that calendar year.
+
+__Exclusions/Inclusions__  
+
+* Charlotte is excluded from the portfolio view  
+* Canadian Centers are included.  
+* Temp tenants are included    
+* Tenants >20,000 sf are included  
+* Non-reporting tenants are included  
+
+
+## Refresh Information {-}
+
+This report was last run on __`r format(Sys.time(), '%d %B, %Y')`.__
+
+The using data from __CY 2021__
+
+Code is available upon request.
+
+
